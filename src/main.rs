@@ -46,7 +46,17 @@ fn main() {
         // extracts url path
         let url = request.url().to_string();
 
-        if url.starts_with("/kv/") {
+
+        // health check
+        if url == "/health" {
+                let response = 
+                    Response::from_string("OK");
+                let _ = request.respond(response);
+                }
+
+            //kv routes
+
+        else if url.starts_with("/kv/") {
             // URL key extraction
             let key = url.replace("/kv/", "");
 

@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 
+// uptime tracking imports
+use std::time::Instant;
+
 // simple http implimentation
 use tiny_http::{Server, Response, Method};
 
@@ -23,9 +26,23 @@ struct GetResponse {
     value: String,
 }
 
+// HEALTH RESPONSE
+#[derive(Serialize)]
+struct HealthResponse {
+    status: String,
+    service: String,
+    version: String,
+    uptime_seconds: u64,
+    keys: usize,
+}
+
 // program loop
 fn main() {
     println!("Starting Shard on localhost:8080");
+
+    // uptime check
+    let start_time = Instant::now();
+
 
     // http server
     let server = Server::http("0.0.0.0:8080")
@@ -49,12 +66,41 @@ fn main() {
 
         // health check
         if url == "/health" {
-                let response = 
-                    Response::from_string("OK");
-                let _ = request.respond(response);
-                }
 
-            //kv routes
+            let uptime = start_time.elapsed().as_secs();
+            let key_count = store.lock().unwrap().len();
+
+
+                let body = serde_json::to_string(&HealthResponse {
+                    status: "ok".to_string(),
+                    service: "shard".to_string(),
+                    version: "0.1.0".to_string(),
+                    uptime_seconds: uptime,
+                    keys: key_count,
+                })
+                .unwrap();
+
+            let response = Response::from_string(body);
+            let _ = request.respond(response);
+        }
+        
+
+        // metrics endpoint
+        else if url == "/metrics" {
+            let uptime = start_time.elapsed().as_secs();
+            let key_count = store.lock().unwrap().len();
+
+            let body = format!(
+                "shard_uptime_seconds {}\nshard_keys {}\n",
+                uptime,
+                key_count
+            );
+
+            let response = Response::from_string(body);
+            let _ = request.respond(response);
+        }
+
+            //kv route checks
 
         else if url.starts_with("/kv/") {
             // URL key extraction
